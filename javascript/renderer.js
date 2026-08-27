@@ -13,7 +13,27 @@ function renderChunk(level, chunk, animate = false) {
 	mesh.classList.add('chunk');
 	if (animate) mesh.classList.add('move-in');
 	mesh.style.transform = `translate3d(${worldPos.x * level.tileSize}px,${worldPos.y * level.tileSize}px,${worldPos.z * level.tileSize}px)`;
-	level.scene.append(mesh);
+	appendInOrder(level.scene, mesh, chunk);
+}
+
+// Overscanned faces from neighbouring chunks overlap slightly in the same
+// plane, and browsers resolve exactly-coplanar faces by DOM paint order.
+// Keeping chunks sorted by coordinates makes that order independent of when
+// a chunk happens to (re)render; plain append would let a rebuilt chunk jump
+// above neighbours it previously sat below, flickering the overlap seams.
+function appendInOrder(scene, mesh, chunk) {
+	mesh.dataset.cx = chunk.x;
+	mesh.dataset.cy = chunk.y;
+	mesh.dataset.cz = chunk.z;
+	let before = null;
+	for (const sibling of scene.children) {
+		const d = sibling.dataset;
+		if ((d.cx - chunk.x || d.cy - chunk.y || d.cz - chunk.z) > 0) {
+			before = sibling;
+			break;
+		}
+	}
+	scene.insertBefore(mesh, before);
 }
 
 function appendGreedyFaces(fragment, level, chunk, face) {
@@ -60,6 +80,11 @@ function makeFace(size, p, face, id, width, height) {
 	const texture = blockTypes[id].texture;
 	element.classList.add('face', 'greedy-face', faceNames[face], texture);
 	element.dataset.tile = faceNames[face];
+	// The half-pixel overscan hides antialiasing seams where faces meet. It
+	// makes coplanar quads overlap slightly; browsers paint exactly-coplanar
+	// faces in DOM order, and appendInOrder keeps that order fixed, so the
+	// overlap resolves the same way every frame. No depth offsets: any lift
+	// off the shared plane opens visible gaps at grazing view angles.
 	element.style.width = `${width * size + .5}px`;
 	element.style.height = `${height * size + .5}px`;
 	const x = p.x * size, y = p.y * size, z = p.z * size;

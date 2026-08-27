@@ -8,7 +8,10 @@ const faceTile = [0, 1, 3, 1, 2, 0];
 function makeTexture(path) {
 	const texture = textureLoader.load(path);
 	texture.magFilter = THREE.NearestFilter;
-	texture.minFilter = THREE.NearestFilter;
+	// Preserve crisp nearby pixels, but blend between generated mip levels as
+	// textures shrink into the distance to prevent fullscreen moire/shimmer.
+	texture.minFilter = THREE.NearestMipmapLinearFilter;
+	texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 	texture.colorSpace = THREE.SRGBColorSpace;
 	return texture;
 }

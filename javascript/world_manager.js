@@ -139,9 +139,64 @@ function render() {
 	let animate = hasRenderedInitialWorld && chunksToRender.length <= 48;
 	for (let chunkToRender of chunksToRender) {
 		if (rendererMode === 'three') threeRenderer.renderChunk(level, chunkToRender);
-		else renderChunk(level, chunkToRender, animate);
+		else {
+			renderChunk(level, chunkToRender, animate);
+			// A fresh mesh starts visible; keep the culling state in sync so
+			// the next updateChunkVisibility pass can hide it if needed.
+			chunkToRender.meshHidden = false;
+		}
 	}
 	hasRenderedInitialWorld = true;
+}
+
+// Matches the fixed `perspective` on #game in the stylesheet.
+const cssPerspective = 500;
+// Half the diagonal of a chunk (3x5x3 blocks at 100px), plus slack for the
+// half-tile offset between camera and scene space.
+const chunkBoundingRadius = 425;
+const degToRad = Math.PI / 180;
+
+// Every face div is its own compositor layer, and layers the camera cannot
+// see still hold GPU texture memory. Once the whole render sphere is live the
+// compositor starts shedding textures under pressure, which shows up as faces
+// shimmering in and out while moving. Hiding chunks outside the view frustum
+// keeps only the layers that can actually appear on screen.
+function updateChunkVisibility() {
+	let rx = _camera.rotation.x * degToRad;
+	let ry = _camera.rotation.y * degToRad;
+	let sinRx = Math.sin(rx), cosRx = Math.cos(rx);
+	let sinRy = Math.sin(ry), cosRy = Math.cos(ry);
+
+	// Slopes of the frustum's side planes, widened so a chunk's bounding
+	// sphere must be fully outside the screen before it is hidden.
+	let slopeX = (window.innerWidth / 2) / cssPerspective;
+	let slopeY = (window.innerHeight / 2) / cssPerspective;
+	let marginX = chunkBoundingRadius * Math.sqrt(1 + slopeX * slopeX);
+	let marginY = chunkBoundingRadius * Math.sqrt(1 + slopeY * slopeY);
+
+	for (let chunk of Object.values(level.data)) {
+		if (!chunk.mesh) continue;
+
+		// Chunk centre relative to the camera, in scene pixels.
+		let px = (chunk.x + 0.5) * chunkDimensions.width * _tileSize - _camera.worldPosition.x;
+		let py = (chunk.y + 0.5) * chunkDimensions.height * _tileSize + _camera.worldPosition.y;
+		let pz = (chunk.z + 0.5) * chunkDimensions.depth * _tileSize + _camera.worldPosition.z;
+
+		// Rotate into view space (the inverse of the #rotation transform).
+		let viewX = px * cosRy + pz * sinRy;
+		let rotatedZ = pz * cosRy - px * sinRy;
+		let viewY = py * cosRx + rotatedZ * sinRx;
+		let depth = py * sinRx - rotatedZ * cosRx;
+
+		let hidden = depth < -chunkBoundingRadius ||
+			Math.abs(viewX) > slopeX * depth + marginX ||
+			Math.abs(viewY) > slopeY * depth + marginY;
+
+		if (chunk.meshHidden !== hidden) {
+			chunk.meshHidden = hidden;
+			chunk.mesh.style.visibility = hidden ? 'hidden' : '';
+		}
+	}
 }
 
 function isWithinHorizontalDistance(x, z, centre, distance) {
@@ -162,6 +217,7 @@ function updateLevel(delta) {
 	// Set the world _rotation
 	_rotation.style.transform = 'translate3d(0, 0, 500px) rotateX(-' + (_camera.rotation.x + 360) + 'deg) rotateY(' + _camera.rotation.y + 'deg) rotateZ(0deg)';
 	if (rendererMode === 'three') threeRenderer.update(_camera, _tileSize);
+	else updateChunkVisibility();
 
 	let playerPos = _camera.spawnCubePosition;
 

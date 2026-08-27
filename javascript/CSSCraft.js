@@ -23,6 +23,10 @@ const gravity = 2400;
 
 let movement = { left: false, right: false, forward: false, backward: true };
 
+// The CSS renderer keeps a compositor layer per face, so it hits GPU limits
+// well before the Three.js renderer does.
+const maxRenderDistances = { css: 10, three: 30 };
+
 function start(isDemoMode) {
 	setDemoMode(isDemoMode);
 
@@ -49,6 +53,7 @@ function init() {
 	let renderDistance = document.querySelector('#render-distance input');
 	let renderDistanceLabel = document.querySelector('#render-distance label');
 
+	renderDistance.max = maxRenderDistances.css;
 	renderDistance.value = getRenderDistance();
 
 	renderDistance.addEventListener('change', function () {
@@ -70,6 +75,7 @@ function init() {
 			tabs.forEach(tab => tab.disabled = true);
 			try {
 				await setRendererMode(button.dataset.renderer);
+				renderDistance.max = maxRenderDistances[button.dataset.renderer];
 				renderDistance.value = getRenderDistance();
 				renderDistanceLabel.textContent = renderDistance.value;
 				tabs.forEach(tab => tab.classList.toggle('active', tab === button));
