@@ -11,9 +11,16 @@ function init(camera, tileSize, scene, rotation) {
 	level = new Level(_scene, _tileSize, chunkDimensions);
 }
 
-let generateDistance = { x: 3, y: 2, z: 3 };
-let spawnOffset = Math.floor(generateDistance.x * 3.5);
+let generateDistance = { x: 5, y: 2, z: 5 };
+// Keep the render sphere biased toward the view direction, but leave enough
+// terrain behind/below the player that its rear edge is not visible.
+const renderCentreBias = 1.75;
+let spawnOffset = Math.floor(generateDistance.x * renderCentreBias);
 let lastRender = 0.1;
+let lastChunkKey = '';
+let renderRevision = 0;
+let appliedRenderRevision = -1;
+let hasRenderedInitialWorld = false;
 
 noise.seed(24601);
 
@@ -31,7 +38,8 @@ function getRenderDistance() {
 
 function setRenderDistance(distance) {
 	generateDistance.x = generateDistance.z = distance;
-	spawnOffset = Math.floor(distance * 3.5);
+	spawnOffset = Math.floor(distance * renderCentreBias);
+	renderRevision++;
 }
 
 /* Object that holds the level data */
@@ -105,16 +113,35 @@ function Level(scene, tileSize, chunkDimensions) {
 function render() {
 	let chunkPos = level.worldCubeToChunkPosition(_camera.spawnCubePosition.x, _camera.spawnCubePosition.y, _camera.spawnCubePosition.z);
 	let chunk = null;
+	let chunksToRender = [];
 	for (let x = chunkPos.x - generateDistance.x; x <= chunkPos.x + generateDistance.x; x++) {
 		for (let y = chunkPos.y - generateDistance.y; y <= chunkPos.y + generateDistance.y; y++) {
 			for (let z = chunkPos.z - generateDistance.z; z <= chunkPos.z + generateDistance.z; z++) {
+				// A draw distance is radial in practice. The old square window rendered
+				// up to 41% farther away at its corners than the selected distance.
+				if (!isWithinHorizontalDistance(x, z, chunkPos, generateDistance.x))
+					continue;
 				chunk = level.getChunk(x, y, z);
 				if (!chunk.mesh) {
-					renderChunk(level, chunk);
+					chunksToRender.push(chunk);
 				}
 			}
 		}
 	}
+
+	// A few chunks entering at the edge can animate cheaply. Animating the whole
+	// initial world or a large draw-distance expansion creates hundreds of
+	// simultaneous compositor animations and is considerably more expensive.
+	let animate = hasRenderedInitialWorld && chunksToRender.length <= 48;
+	for (let chunkToRender of chunksToRender)
+		renderChunk(level, chunkToRender, animate);
+	hasRenderedInitialWorld = true;
+}
+
+function isWithinHorizontalDistance(x, z, centre, distance) {
+	let dx = x - centre.x;
+	let dz = z - centre.z;
+	return dx * dx + dz * dz <= distance * distance;
 }
 
 function updateLevel(delta) {
@@ -134,18 +161,20 @@ function updateLevel(delta) {
 	if (!isNaN(delta))
 		lastRender += delta;
 
-	if (lastRender > buildDelay) {
+	let currentChunk = level.worldCubeToChunkPosition(_camera.spawnCubePosition.x, _camera.spawnCubePosition.y, _camera.spawnCubePosition.z);
+	let currentChunkKey = level.generateKey(currentChunk.x, currentChunk.y, currentChunk.z);
 
-		let currChunk = level.worldCubeToChunkPosition(_camera.spawnCubePosition.x, _camera.spawnCubePosition.y, _camera.spawnCubePosition.z);
+	if (lastRender > buildDelay && (currentChunkKey !== lastChunkKey || appliedRenderRevision !== renderRevision)) {
+
+		let currChunk = currentChunk;
+		lastChunkKey = currentChunkKey;
+		appliedRenderRevision = renderRevision;
 
 		for (let chunk of Object.values(level.data)) {
 			
-			if (chunk.x < currChunk.x - generateDistance.x - 2 ||
-				chunk.y < currChunk.y - generateDistance.y - 2 ||
-				chunk.z < currChunk.z - generateDistance.z - 2 ||
-				chunk.x > currChunk.x + generateDistance.x + 2 ||
+			if (chunk.y < currChunk.y - generateDistance.y - 2 ||
 				chunk.y > currChunk.y + generateDistance.y + 2 ||
-				chunk.z > currChunk.z + generateDistance.z + 2) {
+				!isWithinHorizontalDistance(chunk.x, chunk.z, currChunk, generateDistance.x + 2)) {
 
 				chunk.mesh?.remove();
 				let key = level.generateKey(chunk.x, chunk.y, chunk.z);
@@ -156,6 +185,8 @@ function updateLevel(delta) {
 		for (let chunkX = currChunk.x - generateDistance.x - 1; chunkX <= currChunk.x + generateDistance.x + 1; chunkX++) {
 			for (let chunkY = currChunk.y - generateDistance.y - 1; chunkY <= currChunk.y + generateDistance.y + 1; chunkY++) {
 				for (let chunkZ = currChunk.z - generateDistance.z - 1; chunkZ <= currChunk.z + generateDistance.z + 1; chunkZ++) {
+					if (!isWithinHorizontalDistance(chunkX, chunkZ, currChunk, generateDistance.x + 1))
+						continue;
 					let key = level.generateKey(chunkX, chunkY, chunkZ);
 					if (!(key in level.data)) {
 						let chunk = generateChunk(chunkX, chunkY, chunkZ, chunkDimensions);

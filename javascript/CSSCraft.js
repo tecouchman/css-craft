@@ -14,8 +14,7 @@ let hasPointerLock = false;
 let viewport;
 let pointerLockElemn;
 let demoMode = true;
-let ascendSpeed = 30;
-let fallSpeed = 30;
+let verticalSpeed = 600;
 
 let movement = { left: false, right: false, forward: false, backward: true };
 
@@ -193,26 +192,13 @@ function update(delta) {
 		updateDemo();
 	}
 	else {
-		let collisionY = level.getBlock(camera.cubePosition.x, camera.cubePosition.y + 2, camera.cubePosition.z) > 0;
-		let inBlock = level.getBlock(camera.cubePosition.x, camera.cubePosition.y + 1, camera.cubePosition.z) > 0;
+		if (movement.left) move(-playerSpeed * delta, 0);
+		if (movement.forward) move(0, playerSpeed * delta);
+		if (movement.right) move(playerSpeed * delta, 0);
+		if (movement.back) move(0, -playerSpeed * delta);
 
-		if (inBlock) {
-			camera.worldPosition.y = camera.worldPosition.y + ascendSpeed;
-		}
-		else {
-			if (movement.left == true)
-				move(-playerSpeed * delta, 0);
-			if (movement.forward == true)
-				move(0, playerSpeed * delta);
-			if (movement.right == true)
-				move(playerSpeed * delta, 0);
-			if (movement.back == true)
-				move(0, -playerSpeed * delta);
-		}
-
-		if (!collisionY) {
-			camera.worldPosition.y = camera.worldPosition.y - fallSpeed;
-		}
+		updateCameraCubePosition();
+		updateVerticalPosition(delta);
 	}
 
 	updateLevel(delta);
@@ -265,4 +251,23 @@ export {
 	requestPointerLock,
 	setDemoMode,
 	math
+}
+
+function updateVerticalPosition(delta) {
+	let groundY = null;
+	for (let y = camera.cubePosition.y + 1; y <= camera.cubePosition.y + 5; y++) {
+		if (level.getBlock(camera.cubePosition.x, y, camera.cubePosition.z) > 0) {
+			groundY = y;
+			break;
+		}
+	}
+	if (groundY === null) {
+		camera.worldPosition.y -= verticalSpeed * delta;
+		return;
+	}
+
+	let targetY = (2 - groundY) * tileSize;
+	let difference = targetY - camera.worldPosition.y;
+	let step = verticalSpeed * delta;
+	camera.worldPosition.y += Math.sign(difference) * Math.min(Math.abs(difference), step);
 }

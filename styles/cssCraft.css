@@ -318,18 +318,55 @@ button:hover,
 /* Animations */
 
 .chunk.move-in {
-  animation: move-in 0.2s;
+  animation: chunk-move-in 0.16s ease-out;
 }
 
-@keyframes move-in {
+/* `translate` is independent of the chunk's positioning transform, so this
+   keeps the old rise-in effect without animating `top` and forcing layout. */
+@keyframes chunk-move-in {
   from {
-    top: 100px
+    translate: 0 35px;
   }
-
   to {
-    top: 0
+    translate: 0 0;
   }
 }
+
+/* Chunk faces are flattened: this avoids a 3D stacking context per block. */
+.chunk>.face { left: 0; top: 0; width: 100.5px; height: 100.5px; }
+.grass.face { background-image: url(../images/block_textures/grass_side.png); }
+.grass.tp { background-image: url(../images/block_textures/grass_top.png); background-size: 100% 100% !important; }
+.grass.bm, .dirt.face { background-image: url(../images/block_textures/dirt.png); }
+.gravel.face { background-image: url(../images/block_textures/gravel.png); }
+.stone.face { background-image: url(../images/block_textures/stone.png); }
+.brick.face { background-image: url(../images/block_textures/brick.png); }
+
+.greedy-face {
+  left: 0;
+  top: 0;
+  background-size: 100px 100px !important;
+  background-repeat: repeat;
+}
+.greedy-face.grass.tp {
+  background-image: url(../images/block_textures/grass_top.png);
+  background-size: 100px 100px !important;
+}
+.greedy-face.grass[data-tile="ft"] { background-image: url(../images/block_textures/tiles/grass_side_0.svg); }
+.greedy-face.grass[data-tile="bm"], .greedy-face.grass[data-tile="lt"] { background-image: url(../images/block_textures/tiles/grass_side_1.svg); }
+.greedy-face.grass[data-tile="bk"] { background-image: url(../images/block_textures/tiles/grass_side_2.svg); }
+.greedy-face.grass[data-tile="rt"] { background-image: url(../images/block_textures/tiles/grass_side_3.svg); }
+.greedy-face.dirt[data-tile="tp"], .greedy-face.dirt[data-tile="ft"] { background-image: url(../images/block_textures/tiles/dirt_0.svg); }
+.greedy-face.dirt[data-tile="bm"], .greedy-face.dirt[data-tile="lt"] { background-image: url(../images/block_textures/tiles/dirt_1.svg); }
+.greedy-face.dirt[data-tile="bk"] { background-image: url(../images/block_textures/tiles/dirt_2.svg); }
+.greedy-face.dirt[data-tile="rt"] { background-image: url(../images/block_textures/tiles/dirt_3.svg); }
+.greedy-face.gravel[data-tile="tp"], .greedy-face.gravel[data-tile="ft"] { background-image: url(../images/block_textures/tiles/gravel_0.svg); }
+.greedy-face.gravel[data-tile="bm"], .greedy-face.gravel[data-tile="lt"] { background-image: url(../images/block_textures/tiles/gravel_1.svg); }
+.greedy-face.gravel[data-tile="bk"] { background-image: url(../images/block_textures/tiles/gravel_2.svg); }
+.greedy-face.gravel[data-tile="rt"] { background-image: url(../images/block_textures/tiles/gravel_3.svg); }
+.greedy-face.stone[data-tile="tp"], .greedy-face.stone[data-tile="ft"] { background-image: url(../images/block_textures/tiles/stone_0.svg); }
+.greedy-face.stone[data-tile="bm"], .greedy-face.stone[data-tile="lt"] { background-image: url(../images/block_textures/tiles/stone_1.svg); }
+.greedy-face.stone[data-tile="bk"] { background-image: url(../images/block_textures/tiles/stone_2.svg); }
+.greedy-face.stone[data-tile="rt"] { background-image: url(../images/block_textures/tiles/stone_3.svg); }
 
 .fade-in {
   animation: fade-in 0.2s;
