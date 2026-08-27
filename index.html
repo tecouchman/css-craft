@@ -7,10 +7,26 @@
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 			<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 		<link href='styles/cssCraft.css' rel='stylesheet' type='text/css' />
+		<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js"}}</script>
 		<script src="javascript/prefixfree.min.js"></script>
 	</head>
 	<body>
 		<div id="ui" class="hidden" >
+			<div id="renderer-tabs" role="tablist" aria-label="Renderer">
+				<button class="active" data-renderer="css" role="tab" aria-label="CSS 3D renderer" title="CSS 3D renderer">
+					<svg class="renderer-logo css3-logo" viewBox="0 0 24 24" aria-hidden="true">
+						<defs><mask id="css3-cutout"><rect width="24" height="24" fill="white"/><text class="css-word" x="12" y="8" text-anchor="middle" fill="black">CSS</text><text class="css-number" x="12" y="18" text-anchor="middle" fill="black">3</text></mask></defs>
+						<path class="shield" mask="url(#css3-cutout)" d="M3 2h18l-2 18-7 2-7-2L3 2Z"/>
+					</svg>
+				</button>
+				<button data-renderer="three" role="tab" aria-label="Three.js renderer" title="Three.js renderer">
+					<svg class="renderer-logo three-logo" viewBox="0 0 226.77 226.77" aria-hidden="true">
+						<g transform="translate(8.964 4.2527)">
+							<path d="m63.02 200.61-43.213-174.94 173.23 49.874z"/><path d="m106.39 50.612 21.591 87.496-86.567-24.945z"/><path d="m84.91 125.03-10.724-43.465 43.008 12.346z"/><path d="m63.458 38.153 10.724 43.465-43.008-12.346z"/><path d="m149.47 62.93 10.724 43.465-43.008-12.346z"/><path d="m84.915 125.06 10.724 43.465-43.008-12.346z"/>
+						</g>
+					</svg>
+				</button>
+			</div>
 			<button id="btn-pointer-lock">Click for mouse control</button>
 			<div id="menu">
 				<button id="btn-fullscreen"><img src="images/full-screen.png" alt="Menu" /></button>
@@ -20,8 +36,12 @@
 						<label for="render-distance">Render Distance:</label>
 	
 						<fieldset id="render-distance">
-							<input type="range" min="2" max="10" />
+							<input type="range" min="2" max="30" />
 							<label>5</label>
+						</fieldset>
+						<fieldset id="auto-jump">
+							<label for="auto-jump-enabled">Auto Jump</label>
+							<input id="auto-jump-enabled" type="checkbox" checked />
 						</fieldset>
 					</div>
 				</div>

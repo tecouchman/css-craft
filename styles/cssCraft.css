@@ -35,7 +35,23 @@ body * {
 #start,
 #github .combo-button {
   margin-bottom: 15px;
-  width: 221px
+  width: 221px;
+  box-sizing: border-box;
+}
+
+#github .combo-button {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+#github .combo-button>.button {
+  float: none;
+  box-sizing: border-box;
+}
+
+#github .combo-button>.button:last-child {
+  flex: 1;
+  min-width: 0;
 }
 
 #start-screen #logo {
@@ -160,6 +176,7 @@ button:hover,
   float: right;
   width: 40px;
   height: 40px;
+  box-sizing: border-box;
   z-index: 1001;
 }
 
@@ -167,6 +184,9 @@ button:hover,
   position: absolute;
   top: 20px;
   right: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 #btn-menu {
@@ -175,9 +195,9 @@ button:hover,
 
 #menu>* {
   position: relative;
-  float: right;
-  clear: both;
-  margin-bottom: 10px;
+  float: none;
+  clear: none;
+  margin-bottom: 0;
   z-index: 1001;
 }
 
@@ -187,11 +207,14 @@ button:hover,
 
 #submenu {
   background-color: rgba(0, 0, 0, 0.60);
+  position: absolute;
+  top: 40px;
+  right: 0;
 }
 
 #submenu {
   display: none;
-  margin-top: 40px;
+  margin-top: 0;
   padding: 10px;
   text-align: center;
 }
@@ -319,6 +342,84 @@ button:hover,
 
 .chunk.move-in {
   animation: chunk-move-in 0.16s ease-out;
+}
+
+#auto-jump {
+  white-space: nowrap;
+}
+
+#auto-jump input {
+  vertical-align: middle;
+}
+
+#renderer-tabs {
+  position: absolute;
+  z-index: 1001;
+  top: 20px;
+  right: 120px;
+  left: auto;
+  translate: none;
+  display: flex;
+}
+
+#renderer-tabs button {
+  position: relative;
+  font-size: 1.15em;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 4px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+#renderer-tabs button + button {
+  border-left-color: #444;
+}
+
+#renderer-tabs button:first-child {
+  border-right: 0;
+}
+
+#renderer-tabs button:hover {
+  outline: 2px solid white;
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+#renderer-tabs button.active {
+  opacity: 1;
+  box-shadow: inset 2px 4px #0006, inset -2px -2px #fff7;
+}
+
+#renderer-tabs svg {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  filter: none;
+}
+
+#renderer-tabs .css3-logo .shield { fill: #fff; }
+#renderer-tabs .css3-logo text {
+  font-family: Arial, sans-serif;
+  font-weight: 900;
+  text-shadow: none;
+}
+#renderer-tabs .css3-logo .css-word { font-size: 5px; }
+#renderer-tabs .css3-logo .css-number { font-size: 11px; }
+#renderer-tabs .three-logo {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 9;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+}
+
+#three-canvas {
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* `translate` is independent of the chunk's positioning transform, so this

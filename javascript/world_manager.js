@@ -12,6 +12,7 @@ function init(camera, tileSize, scene, rotation) {
 }
 
 let generateDistance = { x: 5, y: 2, z: 5 };
+let rendererDistances = { css: 5, three: 15 };
 // Keep the render sphere biased toward the view direction, but leave enough
 // terrain behind/below the player that its rear edge is not visible.
 const renderCentreBias = 1.75;
@@ -21,6 +22,8 @@ let lastChunkKey = '';
 let renderRevision = 0;
 let appliedRenderRevision = -1;
 let hasRenderedInitialWorld = false;
+let rendererMode = 'css';
+let threeRenderer = null;
 
 noise.seed(24601);
 
@@ -39,6 +42,7 @@ function getRenderDistance() {
 function setRenderDistance(distance) {
 	generateDistance.x = generateDistance.z = distance;
 	spawnOffset = Math.floor(distance * renderCentreBias);
+	rendererDistances[rendererMode] = distance;
 	renderRevision++;
 }
 
@@ -122,7 +126,7 @@ function render() {
 				if (!isWithinHorizontalDistance(x, z, chunkPos, generateDistance.x))
 					continue;
 				chunk = level.getChunk(x, y, z);
-				if (!chunk.mesh) {
+				if (chunk && !chunk.mesh) {
 					chunksToRender.push(chunk);
 				}
 			}
@@ -133,8 +137,10 @@ function render() {
 	// initial world or a large draw-distance expansion creates hundreds of
 	// simultaneous compositor animations and is considerably more expensive.
 	let animate = hasRenderedInitialWorld && chunksToRender.length <= 48;
-	for (let chunkToRender of chunksToRender)
-		renderChunk(level, chunkToRender, animate);
+	for (let chunkToRender of chunksToRender) {
+		if (rendererMode === 'three') threeRenderer.renderChunk(level, chunkToRender);
+		else renderChunk(level, chunkToRender, animate);
+	}
 	hasRenderedInitialWorld = true;
 }
 
@@ -155,6 +161,7 @@ function updateLevel(delta) {
 
 	// Set the world _rotation
 	_rotation.style.transform = 'translate3d(0, 0, 500px) rotateX(-' + (_camera.rotation.x + 360) + 'deg) rotateY(' + _camera.rotation.y + 'deg) rotateZ(0deg)';
+	if (rendererMode === 'three') threeRenderer.update(_camera, _tileSize);
 
 	let playerPos = _camera.spawnCubePosition;
 
@@ -176,7 +183,8 @@ function updateLevel(delta) {
 				chunk.y > currChunk.y + generateDistance.y + 2 ||
 				!isWithinHorizontalDistance(chunk.x, chunk.z, currChunk, generateDistance.x + 2)) {
 
-				chunk.mesh?.remove();
+				if (rendererMode === 'three') threeRenderer.removeChunk(chunk);
+				else chunk.mesh?.remove();
 				let key = level.generateKey(chunk.x, chunk.y, chunk.z);
 				delete level.data[key];
 			}
@@ -201,5 +209,34 @@ function updateLevel(delta) {
 	}
 }
 
+async function setRendererMode(mode) {
+	if (mode === rendererMode) return;
+	if (mode === 'three' && !threeRenderer) {
+		threeRenderer = await import('./renderer_three.js');
+		threeRenderer.init(document.getElementById('game'));
+	}
+	for (let chunk of Object.values(level.data)) {
+		if (rendererMode === 'three') threeRenderer.removeChunk(chunk);
+		else chunk.mesh?.remove();
+		chunk.mesh = null;
+	}
+	rendererMode = mode;
+	generateDistance.x = generateDistance.z = rendererDistances[mode];
+	spawnOffset = Math.floor(generateDistance.x * renderCentreBias);
+	_scene.hidden = mode !== 'css';
+	if (threeRenderer) threeRenderer.setVisible(mode === 'three');
+	renderRevision++;
+	// Switching renderers invalidates every visual mesh. Rebuild immediately;
+	// otherwise a recent chunk update can leave the selected renderer blank
+	// until the throttled world-maintenance interval runs again.
+	render();
+	lastRender = buildDelay + 1;
+	lastChunkKey = '';
+	// Complete generation/reconciliation as part of the switch itself. This is
+	// important when animation frames are paused (background tabs) and also
+	// prevents a visible blue frame while waiting for the next RAF tick.
+	updateLevel(buildDelay + 1);
+}
 
-export { init, spawnOffset, updateLevel, level, generateDistance, getRenderDistance, setRenderDistance };
+
+export { init, spawnOffset, updateLevel, level, generateDistance, getRenderDistance, setRenderDistance, setRendererMode };

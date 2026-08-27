@@ -1,4 +1,4 @@
-import { init as initWorldManager, spawnOffset, updateLevel, level, getRenderDistance, setRenderDistance } from './world_manager.js';
+import { init as initWorldManager, spawnOffset, updateLevel, level, getRenderDistance, setRenderDistance, setRendererMode } from './world_manager.js';
 
 const tileSize = 100;
 
@@ -15,6 +15,11 @@ let viewport;
 let pointerLockElemn;
 let demoMode = true;
 let verticalSpeed = 600;
+let verticalVelocity = 0;
+let jumpRequested = false;
+let autoJumpEnabled = true;
+const jumpSpeed = 780;
+const gravity = 2400;
 
 let movement = { left: false, right: false, forward: false, backward: true };
 
@@ -53,8 +58,26 @@ function init() {
 
 	let scene = document.getElementById('scene');
 	let rotation = document.getElementById('rotation');
+	let autoJump = document.getElementById('auto-jump-enabled');
+	autoJump.checked = autoJumpEnabled;
+	autoJump.addEventListener('change', () => autoJumpEnabled = autoJump.checked);
 
 	initWorldManager(camera, tileSize, scene, rotation);
+
+	document.querySelectorAll('#renderer-tabs button').forEach(button => {
+		button.addEventListener('click', async () => {
+			let tabs = [...document.querySelectorAll('#renderer-tabs button')];
+			tabs.forEach(tab => tab.disabled = true);
+			try {
+				await setRendererMode(button.dataset.renderer);
+				renderDistance.value = getRenderDistance();
+				renderDistanceLabel.textContent = renderDistance.value;
+				tabs.forEach(tab => tab.classList.toggle('active', tab === button));
+			} finally {
+				tabs.forEach(tab => tab.disabled = false);
+			}
+		});
+	});
 }
 
 function setDemoMode(isDemoMode) {
@@ -96,6 +119,11 @@ function pointerLockChanged() {
 }
 
 document.addEventListener('keydown', function (event) {
+	if (event.code === 'Space') {
+		if (!event.repeat) jumpRequested = true;
+		event.preventDefault();
+		return;
+	}
 	setKeyPressed(event.code, true);
 });
 
@@ -192,10 +220,37 @@ function update(delta) {
 		updateDemo();
 	}
 	else {
-		if (movement.left) move(-playerSpeed * delta, 0);
-		if (movement.forward) move(0, playerSpeed * delta);
-		if (movement.right) move(playerSpeed * delta, 0);
-		if (movement.back) move(0, -playerSpeed * delta);
+		// Once a higher terrain column intersects the player's lower body, pause
+		// horizontal travel until auto-jump has lifted the camera clear of it.
+		// This prevents the Three.js near plane from entering steep hill faces.
+		let climbing = level.getBlock(camera.cubePosition.x, camera.cubePosition.y + 1, camera.cubePosition.z) > 0;
+		if (!climbing) {
+			let previousX = camera.worldPosition.x;
+			let previousZ = camera.worldPosition.z;
+			if (movement.left) move(-playerSpeed * delta, 0);
+			if (movement.forward) move(0, playerSpeed * delta);
+			if (movement.right) move(playerSpeed * delta, 0);
+			if (movement.back) move(0, -playerSpeed * delta);
+
+			if (!autoJumpEnabled) {
+				let intendedX = camera.worldPosition.x;
+				let intendedZ = camera.worldPosition.z;
+				camera.worldPosition.x = previousX;
+				camera.worldPosition.z = previousZ;
+
+				// Resolve each horizontal axis independently. If one direction hits
+				// terrain, the other remains free so the player slides along the edge.
+				camera.worldPosition.x = intendedX;
+				updateCameraCubePosition();
+				if (level.getBlock(camera.cubePosition.x, camera.cubePosition.y + 1, camera.cubePosition.z) > 0)
+					camera.worldPosition.x = previousX;
+
+				camera.worldPosition.z = intendedZ;
+				updateCameraCubePosition();
+				if (level.getBlock(camera.cubePosition.x, camera.cubePosition.y + 1, camera.cubePosition.z) > 0)
+					camera.worldPosition.z = previousZ;
+			}
+		}
 
 		updateCameraCubePosition();
 		updateVerticalPosition(delta);
@@ -262,12 +317,33 @@ function updateVerticalPosition(delta) {
 		}
 	}
 	if (groundY === null) {
-		camera.worldPosition.y -= verticalSpeed * delta;
+		verticalVelocity -= gravity * delta;
+		camera.worldPosition.y += verticalVelocity * delta;
+		jumpRequested = false;
 		return;
 	}
 
 	let targetY = (2 - groundY) * tileSize;
 	let difference = targetY - camera.worldPosition.y;
-	let step = verticalSpeed * delta;
+
+	if (jumpRequested) {
+		if (Math.abs(difference) < 1 && verticalVelocity === 0)
+			verticalVelocity = jumpSpeed;
+		jumpRequested = false;
+	}
+
+	if (verticalVelocity !== 0) {
+		verticalVelocity -= gravity * delta;
+		let nextY = camera.worldPosition.y + verticalVelocity * delta;
+		if (verticalVelocity < 0 && nextY <= targetY) {
+			camera.worldPosition.y = targetY;
+			verticalVelocity = 0;
+		} else {
+			camera.worldPosition.y = nextY;
+		}
+		return;
+	}
+
+	let step = verticalSpeed * (difference > 0 ? 2 : 1) * delta;
 	camera.worldPosition.y += Math.sign(difference) * Math.min(Math.abs(difference), step);
 }
